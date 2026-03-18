@@ -35,13 +35,11 @@ struct SettingsView: View {
                     if let partner = authViewModel.partner {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(partner.displayName ?? partner.username ?? "—")
+                                Text(partner.displayName ?? partner.username)
                                     .font(.body.weight(.medium))
-                                if let username = partner.username {
-                                    Text("@\(username)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("@\(partner.username)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
 
                             Spacer()
@@ -93,8 +91,8 @@ struct SettingsView: View {
             .alert("Remove Partner?", isPresented: $showRemovePartner) {
                 Button("Remove", role: .destructive) {
                     Task {
-                        if let token = authViewModel.accessToken {
-                            await partnerVM.removePartner(token: token)
+                        if let token = authViewModel.accessToken, let uid = authViewModel.userID {
+                            await partnerVM.removePartner(userID: uid, token: token)
                             await authViewModel.loadProfile()
                         }
                     }

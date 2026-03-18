@@ -3,13 +3,13 @@ import SwiftUI
 struct LoginView: View {
     let authViewModel: AuthViewModel
 
-    @State private var identifier = ""
+    @State private var email = ""
     @State private var password = ""
     @State private var showRegister = false
 
     @FocusState private var focusedField: Field?
 
-    private enum Field { case identifier, password }
+    private enum Field { case email, password }
 
     var body: some View {
         NavigationStack {
@@ -29,11 +29,12 @@ struct LoginView: View {
                     }
 
                     VStack(spacing: 16) {
-                        TextField("username or email", text: $identifier)
-                            .textContentType(.username)
+                        TextField("email", text: $email)
+                            .textContentType(.emailAddress)
+                            .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                            .focused($focusedField, equals: .identifier)
+                            .focused($focusedField, equals: .email)
                             .submitLabel(.next)
                             .onSubmit { focusedField = .password }
                             .padding(.horizontal, 16)
@@ -77,7 +78,7 @@ struct LoginView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.black)
                     .clipShape(.rect(cornerRadius: 12))
-                    .disabled(identifier.isEmpty || password.isEmpty || authViewModel.isLoading)
+                    .disabled(email.isEmpty || password.isEmpty || authViewModel.isLoading)
 
                     Button {
                         showRegister = true
@@ -98,9 +99,9 @@ struct LoginView: View {
     }
 
     private func loginAction() {
-        guard !identifier.isEmpty, !password.isEmpty else { return }
+        guard !email.isEmpty, !password.isEmpty else { return }
         Task {
-            await authViewModel.login(identifier: identifier, password: password)
+            await authViewModel.login(email: email, password: password)
         }
     }
 }

@@ -4,7 +4,7 @@ struct NotesView: View {
     let authViewModel: AuthViewModel
     let homeVM: HomeViewModel
 
-    @State private var receivedNotes: [Note] = []
+    @State private var receivedNotes: [SupabaseNote] = []
     @State private var showingSent = false
     @State private var isLoading = false
 
@@ -50,17 +50,12 @@ struct NotesView: View {
         }
     }
 
-    private func noteRow(_ note: Note) -> some View {
+    private func noteRow(_ note: SupabaseNote) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(note.content)
                 .font(.system(.body, design: .serif))
 
             HStack {
-                if let sender = note.sender {
-                    Text("from \(sender.displayName ?? sender.username)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
                 Spacer()
                 Text(note.formattedDate)
                     .font(.caption2)
@@ -74,15 +69,12 @@ struct NotesView: View {
     }
 
     private func loadNotes() async {
-        guard let token = authViewModel.accessToken else { return }
+        guard let token = authViewModel.accessToken, let uid = authViewModel.userID else { return }
         isLoading = true
         defer { isLoading = false }
 
         do {
-            let response = try await APIService.shared.getReceivedNotes(token: token)
-            receivedNotes = response.notes
-        } catch {
-            // silently fail
-        }
+            receivedNotes = try await SupabaseService.shared.getReceivedNotes(receiverID: uid, accessToken: token)
+        } catch {}
     }
 }

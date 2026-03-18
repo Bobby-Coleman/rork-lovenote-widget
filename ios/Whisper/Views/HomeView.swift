@@ -23,9 +23,9 @@ struct HomeView: View {
         .tint(.black)
         .task {
             await authViewModel.loadProfile()
-            if let token = authViewModel.accessToken {
-                await homeVM.loadLatestNote(token: token)
-                await homeVM.loadSentNotes(token: token)
+            if let token = authViewModel.accessToken, let uid = authViewModel.userID {
+                await homeVM.loadLatestNote(token: token, receiverID: uid)
+                await homeVM.loadSentNotes(token: token, senderID: uid)
             }
         }
     }

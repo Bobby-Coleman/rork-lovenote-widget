@@ -113,8 +113,10 @@ struct ComposeView: View {
                 Button {
                     isEditing = false
                     Task {
-                        if let token = authViewModel.accessToken {
-                            await homeVM.sendNote(token: token)
+                        if let token = authViewModel.accessToken,
+                           let uid = authViewModel.userID,
+                           let partnerID = authViewModel.partner?.id {
+                            await homeVM.sendNote(token: token, senderID: uid, receiverID: partnerID)
                         }
                     }
                 } label: {

@@ -19,8 +19,8 @@ struct AddPartnerSheet: View {
                         .clipShape(.rect(cornerRadius: 12))
                         .onChange(of: partnerVM.searchText) { _, _ in
                             Task {
-                                if let token = authViewModel.accessToken {
-                                    await partnerVM.search(token: token)
+                                if let token = authViewModel.accessToken, let uid = authViewModel.userID {
+                                    await partnerVM.search(token: token, currentUserID: uid)
                                 }
                             }
                         }
@@ -43,24 +43,22 @@ struct AddPartnerSheet: View {
                 if partnerVM.searchResults.isEmpty && !partnerVM.searchText.isEmpty && !partnerVM.isSearching {
                     ContentUnavailableView.search(text: partnerVM.searchText)
                 } else {
-                    List(partnerVM.searchResults, id: \.id) { user in
+                    List(partnerVM.searchResults) { user in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(user.displayName ?? user.username ?? "—")
+                                Text(user.displayName ?? user.username)
                                     .font(.body.weight(.medium))
-                                if let username = user.username {
-                                    Text("@\(username)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("@\(user.username)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
 
                             Spacer()
 
                             Button {
                                 Task {
-                                    if let token = authViewModel.accessToken, let username = user.username {
-                                        await partnerVM.addPartner(username: username, token: token)
+                                    if let token = authViewModel.accessToken, let uid = authViewModel.userID {
+                                        await partnerVM.addPartner(userID: uid, partnerID: user.id, token: token)
                                     }
                                 }
                             } label: {

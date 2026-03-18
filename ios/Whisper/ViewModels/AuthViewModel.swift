@@ -5,14 +5,18 @@ import SwiftUI
 class AuthViewModel {
     var isAuthenticated = false
     var isLoading = false
-    var currentUser: UserResponse?
-    var partner: UserResponse?
+    var currentUser: SupabaseProfile?
+    var partner: SupabaseProfile?
     var errorMessage: String?
 
-    private let api = APIService.shared
+    private let supa = SupabaseService.shared
 
     var accessToken: String? {
         KeychainService.load(key: "access_token")
+    }
+
+    var userID: String? {
+        KeychainService.load(key: "user_id")
     }
 
     init() {
@@ -27,26 +31,37 @@ class AuthViewModel {
         defer { isLoading = false }
 
         do {
-            let response = try await api.register(email: email, password: password, username: username)
-            saveSession(response)
+            let authResponse = try await supa.signUp(email: email, password: password)
+            saveSession(authResponse)
+
+            try await supa.createProfile(
+                id: authResponse.user.id,
+                username: username.lowercased(),
+                displayName: username,
+                accessToken: authResponse.accessToken
+            )
+
+            KeychainService.save(key: "username", value: username.lowercased())
+            await loadProfile()
             isAuthenticated = true
-        } catch let error as APIError {
+        } catch let error as SupabaseError {
             errorMessage = error.errorDescription
         } catch {
             errorMessage = "Connection failed. Please try again."
         }
     }
 
-    func login(identifier: String, password: String) async {
+    func login(email: String, password: String) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
-            let response = try await api.login(identifier: identifier, password: password)
-            saveSession(response)
+            let authResponse = try await supa.signIn(email: email, password: password)
+            saveSession(authResponse)
+            await loadProfile()
             isAuthenticated = true
-        } catch let error as APIError {
+        } catch let error as SupabaseError {
             errorMessage = error.errorDescription
         } catch {
             errorMessage = "Connection failed. Please try again."
@@ -54,28 +69,33 @@ class AuthViewModel {
     }
 
     func loadProfile() async {
-        guard let token = accessToken else {
+        guard let token = accessToken, let uid = userID else {
             isAuthenticated = false
             return
         }
 
         do {
-            let response = try await api.getMe(token: token)
-            currentUser = response.user
-            partner = response.partner
+            currentUser = try await supa.getProfile(id: uid, accessToken: token)
 
-            if let note = try? await api.getLatestNote(token: token),
-               let noteData = note.note {
-                SharedDataService.saveLatestNote(
-                    noteData.content,
-                    from: noteData.sender?.displayName ?? noteData.sender?.username ?? "Someone"
-                )
+            if let partnership = try await supa.getPartnership(userID: uid, accessToken: token) {
+                partner = try await supa.getProfile(id: partnership.partnerId, accessToken: token)
+            } else {
+                partner = nil
             }
-        } catch is APIError {
+
+            if let partnerProfile = partner {
+                if let latestNote = try await supa.getLatestReceivedNote(receiverID: uid, accessToken: token) {
+                    let senderName = currentUser?.displayName ?? currentUser?.username ?? "Someone"
+                    let _ = partnerProfile
+                    SharedDataService.saveLatestNote(
+                        latestNote.content,
+                        from: senderName
+                    )
+                }
+            }
+        } catch is SupabaseError {
             await tryRefreshOrLogout()
-        } catch {
-            // silently fail
-        }
+        } catch {}
     }
 
     func logout() {
@@ -86,14 +106,10 @@ class AuthViewModel {
         isAuthenticated = false
     }
 
-    private func saveSession(_ response: AuthResponse) {
-        KeychainService.save(key: "access_token", value: response.session.accessToken)
-        KeychainService.save(key: "refresh_token", value: response.session.refreshToken)
+    private func saveSession(_ response: SupabaseAuthResponse) {
+        KeychainService.save(key: "access_token", value: response.accessToken)
+        KeychainService.save(key: "refresh_token", value: response.refreshToken)
         KeychainService.save(key: "user_id", value: response.user.id)
-        if let username = response.user.username {
-            KeychainService.save(key: "username", value: username)
-        }
-        currentUser = response.user
     }
 
     private func tryRefreshOrLogout() async {
@@ -103,9 +119,9 @@ class AuthViewModel {
         }
 
         do {
-            let response = try await api.refreshToken(refreshToken)
-            KeychainService.save(key: "access_token", value: response.session.accessToken)
-            KeychainService.save(key: "refresh_token", value: response.session.refreshToken)
+            let response = try await supa.refreshSession(refreshToken: refreshToken)
+            KeychainService.save(key: "access_token", value: response.accessToken)
+            KeychainService.save(key: "refresh_token", value: response.refreshToken)
             await loadProfile()
         } catch {
             logout()
