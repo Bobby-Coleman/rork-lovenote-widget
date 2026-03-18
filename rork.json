@@ -1,0 +1,9 @@
+{
+  "apps": [
+    {
+      "name": "Whisper",
+      "path": "ios",
+      "framework": "swift"
+    }
+  ]
+}
